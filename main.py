@@ -17,7 +17,7 @@ from modules import init, DatasetLoader, ModelLoader, LossLoader, set_seed, seed
 sys.argv = ['','--config=cfg_files/train.yaml'] #train/test/poseseg
 
 
-# ours
+# ours 上来看看
 
 def main(**args):
     seed = 7
