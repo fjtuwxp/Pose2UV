@@ -13,8 +13,11 @@ from torch.utils.data import DataLoader
 from cmd_parser import parse_config
 from modules import init, DatasetLoader, ModelLoader, LossLoader, set_seed, seed_worker
 
-###########global parameters#########
-# sys.argv = ['','--config=cfg_files/poseseg.yaml'] #train/test/poseseg
+##########global parameters#########
+sys.argv = ['','--config=cfg_files/train.yaml'] #train/test/poseseg
+
+
+# ours
 
 def main(**args):
     seed = 7
