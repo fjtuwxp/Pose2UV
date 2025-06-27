@@ -146,12 +146,15 @@ class DatasetLoader():
         return dataset
 
 class ModelLoader():
-    def __init__(self, model=None, lr=0.0001, device=torch.device('cpu'), pretrain=False, pretrain_dir='', out_dir='', smpl=None, generator=None, batchsize=32, pretrain_poseseg=False, uv_mask=None, test_loss='MPJPE', **kwargs):
+    def __init__(self, model=None, lr=0.0001, device=torch.device('cpu'), pretrain=False, pretrain_dir='', out_dir='', smpl=None, generator=None, batchsize=32, pretrain_poseseg=False, uv_mask=None, test_loss='MPJPE', task='', **kwargs):
         self.smpl = smpl
         self.generator = generator
         self.batchsize = batchsize
         self.output = out_dir
-        self.render = Renderer()
+        if task == 'demo':
+            self.render = None
+        else:
+            self.render = Renderer()
         self.J_regressor_halpe = np.load('data/J_regressor_halpe.npy')
 
         self.test_loss = test_loss
@@ -625,11 +628,14 @@ class ModelLoader():
             rot, transl, intri = est_trans(mesh, joint3d, joint2d, img_render, focal=1000)
 
             abs_meshes.append(mesh + transl)
+        abs_meshes = np.array(abs_meshes)
 
 
         render = Renderer_inp(focal_length=1000, img_w=img.shape[1], img_h=img.shape[0], faces=self.smpl.faces)
 
         rendered = render.render_front_view(abs_meshes, img.copy())
+        side_view = render.render_side_view(abs_meshes)
+        rendered = np.concatenate((img, rendered, side_view), axis=1)
         render.delete()
         # vis_img('img', rendered)
 
@@ -708,6 +714,8 @@ class LossLoader():
                 self.train_loss.update(w_L1=weight_L1(self.device))
             if loss == 'SMPL_Loss':
                 self.train_loss.update(SMPL_Loss=SMPL_Loss(self.device, self.smpl, self.generator))
+            if loss == 'Edge_Loss':
+                self.train_loss.update(Edge_Loss=Edge_Loss(self.device, self.smpl, self.generator))
             if loss == 'Surface_smooth_Loss':
                 self.train_loss.update(Surface_smooth_Loss=Surface_smooth_Loss(self.device, self.smpl.faces))
             if loss == 'L1':
@@ -721,8 +729,8 @@ class LossLoader():
                 self.train_loss.update(LPloss=LPloss(self.device))
             if loss == 'vtloss':
                 self.train_loss.update(vtloss=vtcloss(generator).to(self.device))
-            if loss == 'boneloss':            
-                self.train_loss.update(boneloss=boneloss(generator).to(self.device))
+            if loss == 'Bone_Loss':            
+                self.train_loss.update(Bone_Loss=Bone_Loss(generator, self.device).to(self.device))
             if loss == 'shapeloss':            
                 self.train_loss.update(shapeloss=shapeloss(generator).to(self.device))
             if loss == 'ocheat_loss':            
@@ -776,6 +784,12 @@ class LossLoader():
             elif ltype == 'SMPL_Loss':
                 SMPL_loss = self.train_loss['SMPL_Loss'](pred['pred_verts'], data['verts'], data['uv_flag'])
                 loss_dict = {**loss_dict, **SMPL_loss}
+            elif ltype == 'Edge_Loss':
+                Edge_Loss = self.train_loss['Edge_Loss'](pred['pred_verts'], data['verts'], data['uv_flag'])
+                loss_dict = {**loss_dict, **Edge_Loss}
+            elif ltype == 'Bone_Loss':
+                Bone_Loss = self.train_loss['Bone_Loss'](pred['pred_verts'])
+                loss_dict = {**loss_dict, **Bone_Loss}
             elif ltype == 'Surface_smooth_Loss':
                 Surface_smooth_Loss = self.train_loss['Surface_smooth_Loss'](pred['pred_verts'])
                 loss_dict = {**loss_dict, **Surface_smooth_Loss}
